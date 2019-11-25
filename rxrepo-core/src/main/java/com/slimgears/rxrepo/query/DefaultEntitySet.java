@@ -411,6 +411,7 @@ public class DefaultEntitySet<K, S> implements EntitySet<K, S> {
     private static boolean isConcurrencyException(Throwable exception) {
         log.debug("Checking exception: {}", exception.getMessage(), exception);
         return exception instanceof ConcurrentModificationException ||
+                exception instanceof NoSuchElementException ||
                 (exception instanceof CompositeException && ((CompositeException)exception)
                         .getExceptions()
                         .stream()

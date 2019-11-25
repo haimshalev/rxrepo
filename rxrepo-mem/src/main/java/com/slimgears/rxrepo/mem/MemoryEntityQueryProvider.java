@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class MemoryEntityQueryProvider<K, S> implements EntityQueryProvider<K, S>, AutoCloseable {
@@ -63,12 +64,12 @@ public class MemoryEntityQueryProvider<K, S> implements EntityQueryProvider<K, S
     @Override
     public Maybe<S> insertOrUpdate(K key, Function<Maybe<S>, Maybe<S>> entityUpdater) {
         return Maybe.defer(() -> {
-            AtomicReference<S> reference = objects.computeIfAbsent(key, k -> new AtomicReference<>());
-            AtomicReference<S> oldValue = new AtomicReference<>(reference.get());
+            Supplier<AtomicReference<S>> referenceResolver = () -> objects.computeIfAbsent(key, k -> new AtomicReference<>());
+            AtomicReference<S> oldValue = new AtomicReference<>(referenceResolver.get().get());
             return entityUpdater
-                    .apply(Optional.ofNullable(reference.get()).map(Maybe::just).orElseGet(Maybe::empty))
-                    .flatMap(e -> reference.compareAndSet(oldValue.get(), e)
-                            ? Maybe.just(e)
+                    .apply(Optional.ofNullable(referenceResolver.get().get()).map(Maybe::just).orElseGet(Maybe::empty))
+                    .flatMap(e -> referenceResolver.get().compareAndSet(oldValue.get(), e)
+                            ? (e != null ? Maybe.just(e): Maybe.empty())
                             : Maybe.error(new ConcurrentModificationException("Concurrent modification of " + metaClass.simpleName() + " detected")))
                     .doOnSuccess(e -> {
                         if (!Objects.equals(oldValue.get(), e)) {

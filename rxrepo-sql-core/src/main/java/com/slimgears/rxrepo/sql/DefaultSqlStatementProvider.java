@@ -80,22 +80,31 @@ public class DefaultSqlStatementProvider implements SqlStatementProvider {
     }
 
     @Override
+    public <K, S> SqlStatement forUpdate(MetaClassWithKey<K, S> metaClass, PropertyResolver propertyResolver, ReferenceResolver resolver) {
+        return forInsertOrUpdate(metaClass, propertyResolver, resolver, false);
+    }
+
+    @Override
     public <K, S> SqlStatement forInsertOrUpdate(MetaClassWithKey<K, S> metaClass, PropertyResolver propertyResolver, ReferenceResolver resolver) {
+        return forInsertOrUpdate(metaClass, propertyResolver, resolver, true);
+    }
+
+    private <K, S> SqlStatement forInsertOrUpdate(MetaClassWithKey<K, S> metaClass, PropertyResolver propertyResolver, ReferenceResolver resolver, boolean forced) {
         PropertyMeta<S, K> keyProperty = metaClass.keyProperty();
 
         return statement(() -> of(
-                        "update",
-                        schemaProvider.tableName(metaClass),
-                        "set",
-                        Streams
-                                .fromIterable(propertyResolver.propertyNames())
-                                .flatMap(sqlAssignmentGenerator.toAssignment(metaClass, propertyResolver, resolver))
-                                .collect(Collectors.joining(", ")),
-                        "upsert",
-                        "return after",
-                        "where",
-                        toConditionClause(PropertyExpression.ofObject(keyProperty).eq(propertyResolver.getProperty(keyProperty)))
-                ));
+                "update",
+                schemaProvider.tableName(metaClass),
+                "set",
+                Streams
+                        .fromIterable(propertyResolver.propertyNames())
+                        .flatMap(sqlAssignmentGenerator.toAssignment(metaClass, propertyResolver, resolver))
+                        .collect(Collectors.joining(", ")),
+                forced ? "upsert" : "",
+                "return after",
+                "where",
+                toConditionClause(PropertyExpression.ofObject(keyProperty).eq(propertyResolver.getProperty(keyProperty)))
+        ));
     }
 
     @Override

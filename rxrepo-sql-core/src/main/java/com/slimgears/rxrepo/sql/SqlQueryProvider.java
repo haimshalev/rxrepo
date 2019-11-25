@@ -83,13 +83,17 @@ public class SqlQueryProvider implements QueryProvider {
                             .apply(Maybe.just(oldObj))
                             .map(newObj -> pr.mergeWith(PropertyResolver.fromObject(metaClass, newObj)))
                             .filter(newPr -> !pr.equals(newPr))
-                            .flatMap(newPr -> insertOrUpdate(metaClass, newPr).toMaybe());
+                            .flatMap(newPr -> update(metaClass, newPr).toMaybe());
                 })
                 .switchIfEmpty(Maybe.defer(() -> entityUpdater
                         .apply(Maybe.empty())
                         .flatMap(e -> insert(metaClass, e).toMaybe()))));
     }
 
+    private <K, S> Single<S> update(MetaClassWithKey<K, S> metaClass, PropertyResolver propertyResolver) {
+        SqlStatement statement = statementProvider.forUpdate(metaClass, propertyResolver, referenceResolver);
+        return insertOrUpdate(metaClass, statement);
+    }
 
     private <K, S> Single<S> insertOrUpdate(MetaClassWithKey<K, S> metaClass, PropertyResolver propertyResolver) {
         SqlStatement statement = statementProvider.forInsertOrUpdate(metaClass, propertyResolver, referenceResolver);
